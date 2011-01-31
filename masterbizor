@@ -187,6 +187,12 @@ def handle_args():
 	parser.add_option('--no-invert', dest='invert',
 			default=False, action='store_false',
 			help='Don\'t invert the output image (default)')
+	parser.add_option('--invert-dot-size', dest='invert_dot_size',
+			default=False, action='store_true',
+			help='Invert the size of dots (dark pixels are small)')
+	parser.add_option('--no-invert-dot-size', dest='invert_dot_size',
+			default=False, action='store_false',
+			help='Don\'t invert the size of dots (light pixels are small) (default)')
 	# }}}
 	
 	# misc boolean options # {{{
@@ -500,6 +506,10 @@ def main(options):
 			# shade the color
 			if options.shade and options.color != 'natural':
 				r,g,b = shadeRGB(r,g,b, size)
+			
+			# invert the size of dots
+			if options.invert_dot_size:
+				size = 1.0-size
 			
 			size = min(size,1.0)
 			dots += 1

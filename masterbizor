@@ -159,6 +159,12 @@ def handle_args():
 			help='Which screen style to use (default triv)', metavar='STYLE')
 	
 	# color options # {{{
+	parser.add_option('--shade', dest='shade',
+			default=True, action='store_true',
+			help='Use color shading to color the output image (default)')
+	parser.add_option('--solid', dest='shade',
+			default=True, action='store_false',
+			help='Use solid colors to color the output image (not compatible with --color=\'natural\')')
 	parser.add_option('--color', dest='color', default='natural',
 			type='choice', choices=('natural', 'white', 'black', 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'),
 			help='Color the output image with the given color (default natural (use colors from input image))', metavar='COLOR')
@@ -478,6 +484,10 @@ def main(options):
 			# reset the color
 			if options.color != 'natural':
 				r,g,b = options.rgb_color
+			
+			# shade the color
+			if options.shade and options.color != 'natural':
+				r,g,b = shadeRGB(r,g,b, size)
 			
 			size = min(size,1.0)
 			dots += 1

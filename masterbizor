@@ -159,6 +159,11 @@ def handle_args():
 			help='Which screen style to use (default triv)', metavar='STYLE')
 	
 	# color options # {{{
+	parser.add_option('--color', dest='color', default='natural',
+			type='choice', choices=('natural', 'white', 'black', 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'),
+			help='Color the output image with the given color (default natural (use colors from input image))', metavar='COLOR')
+	parser.add_option('--rgb-color', dest='rgb_color',
+			help='Color the output image with the given RGB (0.0-1.0 or 0-255) color value (overrides --color)', metavar='R,G,B')
 	parser.add_option('--background-color', dest='background_color', default='white',
 			type='choice', choices=('white', 'black', 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'),
 			help='Color the background of the output image with the given color (default white)', metavar='COLOR')
@@ -206,6 +211,19 @@ def handle_args():
 			"change the aspect ratio resulting in a distorted, stupid "
 			"looking image.  You should probably only specify one and let "
 			"the other be calculated automatically.")
+
+	if options.rgb_color != None:
+		options.color = 'black'
+		r,g,b = options.rgb_color.split(',')
+		r,g,b = float(r),float(g),float(b)
+		if (r>1 and g>1 and b>1):
+			r,g,b = scaleRGB(r,g,b)
+		options.rgb_color = r,g,b
+	elif options.color != None:
+		color = mapColor(options.color)
+		options.rgb_color = color.red,color.green,color.blue
+	else:
+		options.rgb_color = 0,0,0
 
 	if options.background_rgb_color != None:
 		r,g,b = options.background_rgb_color.split(',')
@@ -456,9 +474,16 @@ def main(options):
 		
 		for x, y, px, py in page():
 			r,g,b, size = sizefunc(image, x, y)
+			
+			# reset the color
+			if options.color != 'natural':
+				r,g,b = options.rgb_color
+			
 			size = min(size,1.0)
 			dots += 1
 			if size > 1.0/255:
+				c.setFillColorRGB(r,g,b)
+				c.setStrokeColorRGB(r,g,b)
 				c.circle(px, page_height-py, dot_size*size/2.0, stroke=0, fill=1)
 		if options.marks:
 			drawregisters(c, regright, regbottom, page_width, page_height)

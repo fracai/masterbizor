@@ -202,6 +202,22 @@ def handle_args():
 	#	print option + ": " + str(value)
 	return options
 
+def mapColor(color_name):
+	for [namedcolor, name] in (
+			[colors.black,  "black"],
+			[colors.white,  "white"], 
+			[colors.red,    "red"], 
+			[colors.orange, "orange"], 
+			[colors.yellow, "yellow"], 
+			[colors.green,  "green"], 
+			[colors.blue,   "blue"], 
+			[colors.indigo, "indigo"], 
+			[colors.violet, "violet"]): 
+		if name == color_name:
+				return namedcolor
+	
+	return colors.black
+
 def basescreen(image, dot_size, dot_spacing, dot_spacing_approx,
 		use_resample, newimw, newimh):
 	dot_size = dot_size * dot_spacing/dot_spacing_approx

@@ -126,3 +126,46 @@ This prints registration marks on the printed pages to make trimming easier.
 You can turn this off if you don't want them.  Notice that the right and
 bottom edges of the poster are overprinted - the registration marks will help
 you find where the exact edges should be.
+
+
+--scale-method=, --log-scale=
+This provides control over how dots are sized to create the impression of 
+darker colors.  By default, dots are not scaled.  Options currently include:
+"e" and "log".  When supplying "log", you should also supply a scaling factor
+which results in dots scaled according to: size = log(size)/log_scale + 1
+Higher values have a greater impact to lighter colors.
+"e" scales dots according to: size = exp(size)/exp(1)
+
+--invert-dot-size, --no-invert-dot-size
+Normally, dots are sized in relation with their intensity; light is small, 
+dark is large.  Inverting this calculation produces large, light colored dots 
+and small dark colors.
+
+--invert, --no-invert
+This inverts the color of the dot.
+
+--wireframe, --no-wireframe
+If enabled, this draws a circle without filling it in for each dot.
+
+--color=
+The default coloring is "natural" which uses the colors from the original image 
+to color each dots.  --color allows the use of the following, named colors:
+white, black, red, orange, yellow, green, blue, indigo, violet
+
+--rgb-color=
+Similar to --color, this option allows specifying a color to override the 
+original image colors with a comma separated RGB value.
+
+--shade
+The default behavior is to shade dots according to their color in the original 
+image.  If a color has been specified by --color or --rgb-color, the dots will 
+be shaded according to their intensity, but use the specified color as a base.
+
+--solid
+Rather than shading the dots according to their original color, this colors the
+dots as a solid color as in the original image or as specified with --color 
+or --rgb-color.
+
+--background-color=, --background-rgb-color=
+As in the case of the --color override, these allow specifying a named or RGB 
+color to use for the background instead of the default of white.

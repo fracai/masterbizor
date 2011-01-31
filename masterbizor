@@ -335,6 +335,11 @@ def drawregisters(c, width, height, page_width, page_height):
 	c.line(width, page_height-height, width-1*cm, page_height-height)
 	c.line(width, page_height-height, width, page_height-(height-1*cm))
 
+def shadeRGB(r,g,b, shade):
+	r,g,b = 1.0-r,1.0-g,1.0-b
+	r,g,b = 1.0-(r*shade), 1.0-(g*shade), 1.0-(b*shade)
+	return r,g,b
+
 def scaleRGB(r,g,b):
 	return r/255.0, g/255.0, b/255.0
 

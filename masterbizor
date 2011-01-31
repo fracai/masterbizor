@@ -25,7 +25,7 @@
 from math import ceil, floor, sin, cos, sqrt, radians
 from random import random
 from reportlab.pdfgen import canvas
-from reportlab.lib.colors import black, white, gray, red
+from reportlab.lib import colors
 from optparse import Option, OptionValueError, OptionParser
 import Image
 import sys
@@ -325,7 +325,7 @@ def makepages(page_width, page_height, poster_width, poster_height,
 				dot_size, dot_spacing, overlap, x, y)
 
 def drawregisters(c, width, height, page_width, page_height):
-	c.setStrokeColor(gray)
+	c.setStrokeColor(colors.gray)
 	c.line(0, page_height-0, 1*cm, page_height-0)
 	c.line(0, page_height-0, 0, page_height-1*cm)
 	c.line(width, page_height-0, width-1*cm, page_height-0)
@@ -385,7 +385,7 @@ def main(options):
 	imw, imh = image.size
 
 	c = canvas.Canvas(options.outputfile, pagesize=(page_width, page_height), pageCompression=1)
-	c.setFillColor(black)
+	c.setFillColor(colors.black)
 	pagenum = 0
 	dots = 0
 	for page, regright, regbottom in makepages(page_width, page_height,

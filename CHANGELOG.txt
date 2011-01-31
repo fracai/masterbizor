@@ -1,0 +1,10 @@
+2010-04-08: masterbizor-0.4.0
+    imported the following changes to revision control
+    added support for several color output modes (image based, solid, shaded, inverted)
+    added several methods for scaling dot sizes
+    added wireframe mode for drawing output dots
+    other general cleanup to support color output
+    updated README, authorship, etc.
+
+2003-06-23: masterbizor-0.3.0-beta
+    Initial public release

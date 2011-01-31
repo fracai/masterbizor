@@ -1,0 +1,409 @@
+#!/usr/bin/python
+# vim:ts=4:sw=4:noet:
+# ======================================================================
+# masterbizor - Turn an image into a gigantic rasterized poster.  A
+# shameless clone of the rasterbator: http://homokaasu.org/rasterbator/
+# ----------------------------------------------------------------------
+# === Copyright (C) 2004 Thomas Schumm <phong@phong.org> ================ {{{
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# ----------------------------------------------------------------------- }}}
+
+# imports # {{{
+from math import ceil, floor, sin, cos, sqrt, radians
+from random import random
+from reportlab.pdfgen import canvas
+from reportlab.lib.colors import black, white, gray, red
+from optparse import Option, OptionValueError, OptionParser
+import Image
+import sys
+import reportlab.lib.pagesizes
+import reportlab.lib.units
+import textwrap
+from reportlab.lib.units import cm, inch
+from reportlab.lib.pagesizes import landscape, portrait
+import os.path
+# }}}
+
+# globals # {{{
+__version__ = "0.3.0"
+__author__ = "Thomas Schumm <phong@phong.org>"
+# }}}
+
+class RastOption(Option):
+	def check_pagesize(option, opt, value):
+		try:
+			return getattr(reportlab.lib.pagesizes, value.upper())
+		except AttributeError:
+			pass
+		temp = tuple([ RastOption.TYPE_CHECKER['size'](option, opt, v)
+				for v in value.split('x', 1) ])
+		if len(temp) == 2:
+			return temp
+		raise OptionValueError('option %s: invalid page size "%s"' %
+				(opt, value))
+
+	def check_size(option, opt, value):
+		try:
+			global default_units
+			if '0' <= value[-1:] <= '9':
+				return reportlab.lib.units.toLength(value.lower()+default_units)
+			else:
+				return reportlab.lib.units.toLength(value.lower())
+		except ValueError:
+			raise OptionValueError('option %s: invalid size "%s"' %
+					(opt, value))
+
+	#def meta_check_list(TYPE_CHECKER, list_type='string'):
+	#	checker = TYPE_CHECKER[list_type]
+	#	def check_list(option, opt, value):
+	#		return [ checker(option, opt, v) for v in value.split(',') ]
+	#	return check_list
+
+	TYPES = Option.TYPES + ('pagesize', 'size')
+	TYPE_CHECKER = Option.TYPE_CHECKER.copy()
+	TYPE_CHECKER['pagesize'] = check_pagesize
+	TYPE_CHECKER['size'] = check_size
+	#TYPE_CHECKER['string'] = lambda option, opt, value: value
+	#for t in TYPES:
+	#	TYPE_CHECKER['list_' + t] = meta_check_list(TYPE_CHECKER, t)
+	#TYPES += tuple([ 'list_' + t for t in TYPES ])
+
+def error(message, errno=1):
+	print "\n".join(textwrap.wrap("ERROR: " + message))
+	sys.exit(errno)
+
+def warning(message):
+	print "\n".join(textwrap.wrap("WARNING: " + message))
+
+def handle_args():
+	# add options for:
+	#   screen rotation
+	#   overprint vs. not overprint, or how much overprint
+	#   poster size in pages
+	#   margin size (it won't include margins - just figure
+	#       figure them into size calculations and automatically
+	#       inflate the size the right amount for you)
+	#   option for distributing "extra" paper to all four sides
+	#       instead of just right/bottom (i.e. so seams are
+	#       symmetrical)?
+	#   option for some overprint on the left/top to make cutting easier
+	parser = OptionParser(usage='usage: %prog [options] infile.ext [outfile]'
+			'\nsee the included README.txt for more details.',
+			version='%prog ' + __version__,
+			option_class=RastOption)
+
+	global default_units
+	default_units = 'in'
+	#
+	def set_global_units(option, opt, value, parser, *args, **kwargs):
+		global default_units
+		default_units = value
+	#
+	# page information # {{{
+	parser.add_option('--units', dest='units', type='choice',
+			choices=('cm', 'in', 'mm', 'pt', 'pica'), default=default_units,
+			help='Use UNIT as the default units (default in)',
+			metavar='UNIT', callback=set_global_units, action='callback')
+	parser.add_option('--page-size', dest='page_size', type='pagesize',
+			default=reportlab.lib.pagesizes.letter,
+			help='Use page size PAGE (a4, letter, WIDTH,HEIGHT, etc.)',
+			metavar='PAGE')
+	parser.add_option('--portrait', dest='orientation',
+			action='store_const', const=portrait, default=portrait,
+			help='Use portrait orientation (default)')
+	parser.add_option('--landscape', dest='orientation',
+			action='store_const', const=landscape, default=portrait,
+			help='Use landscape orientation')
+	# }}}
+	#
+	# poster size information # {{{
+	parser.add_option('--width', dest='width', type='size',
+			help='Set output image width to SIZE', metavar='SIZE')
+	parser.add_option('--height', dest='height', type='size',
+			help='Set output image height to SIZE', metavar='SIZE')
+	parser.add_option('--width-pages', dest='width_pages', type='float',
+			help='Set output image width to SIZE pages wide', metavar='SIZE')
+	parser.add_option('--height-pages', dest='height_pages', type='float',
+			help='Set output image height to SIZE pages high', metavar='SIZE')
+	parser.add_option('--dot-size', dest='dot_size',
+			type='size', default=1*cm,
+			help='Set dot-size to SIZE', metavar='SIZE')
+	parser.add_option('--overlap', dest='overlap',
+			type='size', default=0,
+			help='Set overlap to SIZE', metavar='SIZE')
+	# }}}
+	#
+	# margins # {{{
+	parser.add_option('--margin', dest='margin',
+			type='size', nargs=4, default=(0, 0, 0, 0),
+			help='Set specified margins', metavar='LEFT RIGHT TOP BOTTOM')
+	# }}}
+	#
+	parser.add_option('-o', '--output', dest='outputfile',
+			help='Output filename (default infile.pdf)', metavar='FILENAME')
+	parser.add_option('--screen', dest='screen', default='triv',
+			type='choice', choices=('triv', 'trih', 'square'),
+			help='Which screen style to use (default triv)', metavar='STYLE')
+	# misc boolean options # {{{
+	parser.add_option('--resample', dest='resample',
+			default=True, action='store_true',
+			help='Use image resampling (default)')
+	parser.add_option('--no-resample', dest='resample',
+			default=True, action='store_false',
+			help='Disable image resampling')
+	parser.add_option('--marks', dest='marks',
+			default=True, action='store_true',
+			help='Use registration marks (default)')
+	parser.add_option('--no-marks', dest='marks',
+			default=True, action='store_false',
+			help='Disable registration marks')
+	# }}}
+	options, args = parser.parse_args()
+	if len(args) == 2:
+		if options.outputfile != None:
+			error("Multiple output filenames specified.")
+		options.inputfile, options.outputfile = args
+	elif len(args) == 1:
+		options.inputfile = args[0]
+	else:
+		error("No input file specified.")
+	if options.outputfile == None:
+		options.outputfile = os.path.splitext(os.path.basename(
+			options.inputfile))[0] + '.pdf'
+
+	if (options.width == None and options.height == None and
+			options.width_pages == None and options.height_pages == None):
+		error("Output dimensions not specified.")
+	elif options.width != None and options.width_pages != None:
+		error("Both --width and --width-pages were specified.")
+	elif options.height != None and options.height_pages != None:
+		error("Both --height and --height-pages were specified.")
+	elif (options.width != None or options.width_pages != None) and \
+			(options.height != None or options.height_pages != None):
+		warning("Both width and height were specified.  This will probably "
+			"change the aspect ratio resulting in a distorted, stupid "
+			"looking image.  You should probably only specify one and let "
+			"the other be calculated automatically.")
+
+	#for option, value in options.__dict__.iteritems():
+	#	print option + ": " + str(value)
+	return options
+
+def basescreen(image, dot_size, dot_spacing, dot_spacing_approx,
+		use_resample, newimw, newimh):
+	dot_size = dot_size * dot_spacing/dot_spacing_approx
+	newimw, newimh = int(newimw), int(newimh)
+	if use_resample:
+		imw, imh = image.size
+		if newimw < imw:
+			image = image.resize((newimw, newimh), Image.ANTIALIAS)
+		else:
+			image = image.resize((newimw, newimh), Image.BILINEAR)
+	return image, dot_size, dot_spacing
+
+def doscreen_square(image, dot_size, use_resample, poster_width, poster_height):
+	dot_spacing_approx = dot_size * cos(radians(45))
+	hdot = round(poster_width / dot_spacing_approx)
+	dot_spacing = poster_width / hdot
+	vdot = ceil(poster_height / dot_spacing)
+	return basescreen(image, dot_size, dot_spacing, dot_spacing_approx,
+			use_resample, hdot+1, vdot+1)
+
+def doscreen_triv(image, dot_size, use_resample, poster_width, poster_height):
+	dot_spacing_approx = dot_size * cos(radians(30))
+	hdot = round(poster_width / (sin(radians(60)) * dot_spacing_approx))
+	dot_spacing = poster_width / (hdot * sin(radians(60)))
+	vdot = round(poster_height / dot_spacing)
+	return basescreen(image, dot_size, dot_spacing, dot_spacing_approx,
+			use_resample, hdot+1, vdot*2+1)
+
+def doscreen_trih(image, dot_size, use_resample, poster_width, poster_height):
+	dot_spacing_approx = dot_size * cos(radians(30))
+	hdot = round(poster_width / dot_spacing_approx)
+	dot_spacing = poster_width / hdot
+	vdot = ceil(poster_height / (sin(radians(60)) * dot_spacing))
+	return basescreen(image, dot_size, dot_spacing, dot_spacing_approx,
+			use_resample, hdot*2+1, vdot+1)
+
+def makepage(page_width, page_height, poster_width, poster_height,
+		dot_size, dot_spacing, overlap, page_x, page_y):
+	left = (page_width - overlap) * page_x
+	top = (page_height - overlap) * page_y
+	right = left + page_width
+	bottom = top + page_height
+
+	if screen == 'triv':
+		yspace = dot_spacing
+		xspace = sin(radians(60)) * dot_spacing
+	elif screen == 'trih':
+		yspace = sin(radians(60)) * dot_spacing
+		xspace = dot_spacing
+	else:
+		yspace = dot_spacing
+		xspace = dot_spacing
+
+	dleft = floor(left/xspace)
+	dtop = floor(top/yspace)
+	dright = floor(right/xspace) + 1
+	dbottom = floor(bottom/yspace) + 1
+	wdots = ceil(poster_width/xspace)
+	hdots = ceil(0.5 + poster_height/yspace)
+	#if screen == 'triv' or screen == 'trih':
+	#	hdots += 1
+	dright = min(dright, wdots)
+	dbottom = min(dbottom, hdots)
+
+	def dots():
+		y = dtop
+		while y <= dbottom:
+			x = dleft
+			if screen[:3] == 'tri' and y%2: x -= 0.5
+			zy = y*yspace/poster_height
+			py = (y*yspace)-top
+			while x <= dright:
+				zx = x*xspace/poster_width
+				px = (x*xspace)-left
+				if (-dot_size/2 <= px <= page_width+dot_size/2 and
+						-dot_size/2 <= py <= page_height+dot_size/2):
+					yield zx, zy, px, py
+				x += 1
+			y += 1
+
+	def dots_90():
+		x = dleft
+		while x <= dright:
+			y = dtop
+			if screen[:3] == 'tri' and x%2: y -= 0.5
+			zx = x*xspace/poster_width
+			px = (x*xspace)-left
+			while y <= dbottom:
+				zy = y*yspace/poster_height
+				py = (y*yspace)-top
+				if (-dot_size/2 <= px <= page_width+dot_size/2 and
+						-dot_size/2 <= py <= page_height+dot_size/2):
+					yield zx, zy, px, py
+				y += 1
+			x += 1
+
+	regright = min(page_width, poster_width-left)
+	regbottom = min(page_height, poster_height-top)
+	if screen == 'triv':
+		return dots_90, regright, regbottom
+	return dots, regright, regbottom
+
+def makepages(page_width, page_height, poster_width, poster_height,
+		dot_size, dot_spacing, overlap, max_wide, max_high):
+	if max_wide != None: max_wide = int(ceil(max_wide))
+	if max_high != None: max_high = int(ceil(max_high))
+	pages_wide = int(ceil(poster_width / (page_width - overlap)))
+	if max_wide != None and max_wide < pages_wide:
+		pages_wide = max_wide
+	pages_high = int(ceil(poster_height / (page_height - overlap)))
+	if max_high != None and max_high < pages_high:
+		pages_high = max_high
+	global default_units
+	pw = poster_width/reportlab.lib.units.toLength('1' + default_units)
+	ph = poster_height/reportlab.lib.units.toLength('1' + default_units)
+	print "Generating %d pages (%dx%d pages, %dx%d%s)" % \
+			(pages_wide * pages_high, pages_wide, pages_high, pw, ph, default_units)
+	for y in xrange(pages_high):
+		for x in xrange(pages_wide):
+			yield makepage(page_width, page_height, poster_width, poster_height,
+				dot_size, dot_spacing, overlap, x, y)
+
+def drawregisters(c, width, height, page_width, page_height):
+	c.setStrokeColor(gray)
+	c.line(0, page_height-0, 1*cm, page_height-0)
+	c.line(0, page_height-0, 0, page_height-1*cm)
+	c.line(width, page_height-0, width-1*cm, page_height-0)
+	c.line(width, page_height-0, width, page_height-1*cm)
+	c.line(0, page_height-height, 1*cm, page_height-height)
+	c.line(0, page_height-height, 0, page_height-(height-1*cm))
+	c.line(width, page_height-height, width-1*cm, page_height-height)
+	c.line(width, page_height-height, width, page_height-(height-1*cm))
+
+def sizefunc(image, x, y):
+	x = max(0.0, min(1.0, x))
+	y = max(0.0, min(1.0, y))
+	return 1.0 - image.getpixel((round((imw-1)*x), round((imh-1)*y)))/255.0
+
+def main(options):
+	doscreens = {
+		'square': doscreen_square,
+		'triv': doscreen_triv,
+		'trih': doscreen_trih,
+	}
+	#screen = 'triv'
+	#draw_registers = 1
+	#use_resample = 1
+	#page_width, page_height = letter
+	#overlap = 1.0 * cm
+	#dot_size_approx = 1.0 * cm
+	page_width, page_height = options.page_size
+	page_width -= options.margin[0] + options.margin[1]
+	page_height -= options.margin[2] + options.margin[3]
+	page_width, page_height = options.orientation((page_width, page_height))
+	dot_size_approx = options.dot_size
+	global screen, imw, imh
+	screen = options.screen
+
+	print "Opening image '%s'..." % options.inputfile
+	image = Image.open(options.inputfile).convert('L')
+	imw, imh = image.size
+
+	#poster_width = 60.0*inch
+	#poster_height = poster_width * imh/imw
+	if options.width_pages != None:
+		poster_width = (page_width * options.width_pages -
+				options.overlap * ceil(options.width_pages-1))
+	else: poster_width = options.width
+	if options.height_pages != None:
+		poster_height = (page_height * options.height_pages -
+				options.overlap * ceil(options.height_pages-1))
+	else: poster_height = options.height
+
+	if poster_width == None:
+		poster_width = poster_height * imw/imh
+	elif poster_height == None:
+		poster_height = poster_width * imh/imw
+
+	image, dot_size, dot_spacing = doscreens[screen](
+			image, dot_size_approx, options.resample, poster_width, poster_height)
+	imw, imh = image.size
+
+	c = canvas.Canvas(options.outputfile, pagesize=(page_width, page_height), pageCompression=1)
+	c.setFillColor(black)
+	pagenum = 0
+	dots = 0
+	for page, regright, regbottom in makepages(page_width, page_height,
+			poster_width, poster_height, dot_size, dot_spacing, options.overlap,
+			options.width_pages, options.height_pages):
+		pagenum += 1
+		print "Generating page %d..." % pagenum
+		for x, y, px, py in page():
+			size = min(sizefunc(image, x, y), 1.0)
+			dots += 1
+			if size > 1.0/255:
+				c.circle(px, page_height-py, dot_size*size/2.0, stroke=0, fill=1)
+		if options.marks:
+			drawregisters(c, regright, regbottom, page_width, page_height)
+		c.showPage()
+	print "%d dots." % dots
+	print "Saving '%s'..." % options.outputfile
+	c.save()
+
+if __name__ == '__main__':
+	options = handle_args()
+	main(options)

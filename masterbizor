@@ -22,7 +22,7 @@
 # ----------------------------------------------------------------------- }}}
 
 # imports # {{{
-from math import ceil, floor, sin, cos, sqrt, radians
+from math import ceil, floor, sin, cos, sqrt, radians, exp, log
 from random import random
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -193,6 +193,11 @@ def handle_args():
 	parser.add_option('--no-invert-dot-size', dest='invert_dot_size',
 			default=False, action='store_false',
 			help='Don\'t invert the size of dots (light pixels are small) (default)')
+	parser.add_option('--scale-method', dest='scale', default='none',
+			type='choice', choices=('none','e', 'log'),
+			help='A method for scaling circle sizes to adjust the contrast of an output image (default none)', metavar='METHOD')
+	parser.add_option('--log-scale', dest='log_scale',
+			help='When the log scaling method is selected, (where x is the pixel size and y is the scaling factor) use the scale equation to calculate the new pixel size.  Higher values provide greater enhancement to lighter colors: log(x)/y + 1', metavar='Y')
 	# }}}
 	
 	# misc boolean options # {{{
@@ -260,6 +265,12 @@ def handle_args():
 		options.background_rgb_color = color.red,color.green,color.blue
 	else:
 		options.background_rgb_color = 1,1,1
+
+	if options.scale == 'log':
+		if options.log_scale == None:
+			options.log_scale = 1.0
+		else:
+			options.log_scale = float(options.log_scale)
 
 	#for option, value in options.__dict__.iteritems():
 	#	print option + ": " + str(value)
@@ -510,6 +521,13 @@ def main(options):
 			# invert the size of dots
 			if options.invert_dot_size:
 				size = 1.0-size
+			
+			# scale the pixel
+			if options.scale == 'e':
+				size = exp(size)/exp(1)
+			elif options.scale == 'log':
+				if size != 0.0:
+					size = log(size)/options.log_scale + 1
 			
 			size = min(size,1.0)
 			dots += 1

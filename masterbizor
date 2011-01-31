@@ -157,6 +157,15 @@ def handle_args():
 	parser.add_option('--screen', dest='screen', default='triv',
 			type='choice', choices=('triv', 'trih', 'square'),
 			help='Which screen style to use (default triv)', metavar='STYLE')
+	
+	# color options # {{{
+	parser.add_option('--background-color', dest='background_color', default='white',
+			type='choice', choices=('white', 'black', 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'),
+			help='Color the background of the output image with the given color (default white)', metavar='COLOR')
+	parser.add_option('--background-rgb-color', dest='background_rgb_color',
+			help='Color the background of the output image with the given RGB (0.0-1.0 or 0-255) color value (overrides --background-color)', metavar='R,G,B')
+	# }}}
+	
 	# misc boolean options # {{{
 	parser.add_option('--resample', dest='resample',
 			default=True, action='store_true',
@@ -197,6 +206,18 @@ def handle_args():
 			"change the aspect ratio resulting in a distorted, stupid "
 			"looking image.  You should probably only specify one and let "
 			"the other be calculated automatically.")
+
+	if options.background_rgb_color != None:
+		r,g,b = options.background_rgb_color.split(',')
+		r,g,b = float(r),float(g),float(b)
+		if (r>1 and g>1 and b>1):
+			r,g,b = scaleRGB(r,g,b)
+		options.background_rgb_color = r,g,b
+	elif options.background_color != None:
+		color = mapColor(options.background_color)
+		options.background_rgb_color = color.red,color.green,color.blue
+	else:
+		options.background_rgb_color = 1,1,1
 
 	#for option, value in options.__dict__.iteritems():
 	#	print option + ": " + str(value)
@@ -426,6 +447,13 @@ def main(options):
 			options.width_pages, options.height_pages):
 		pagenum += 1
 		print "Generating page %d..." % pagenum
+		
+		# color the background
+		if options.background_rgb_color != (1,1,1):
+		    r,g,b = options.background_rgb_color
+			c.setFillColorRGB(r,g,b)
+			c.rect(0,0, page_width,page_height, fill=1)
+		
 		for x, y, px, py in page():
 			r,g,b, size = sizefunc(image, x, y)
 			size = min(size,1.0)

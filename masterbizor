@@ -181,6 +181,12 @@ def handle_args():
 			help='Color the background of the output image with the given color (default white)', metavar='COLOR')
 	parser.add_option('--background-rgb-color', dest='background_rgb_color',
 			help='Color the background of the output image with the given RGB (0.0-1.0 or 0-255) color value (overrides --background-color)', metavar='R,G,B')
+	parser.add_option('--invert', dest='invert',
+			default=False, action='store_true',
+			help='Invert the output image')
+	parser.add_option('--no-invert', dest='invert',
+			default=False, action='store_false',
+			help='Don\'t invert the output image (default)')
 	# }}}
 	
 	# misc boolean options # {{{
@@ -498,6 +504,11 @@ def main(options):
 			size = min(size,1.0)
 			dots += 1
 			if size > 1.0/255:
+				
+				# invert dot colors
+				if options.invert:
+					r,g,b = 1.0-r,1.0-g,1.0-b
+				
 				c.setFillColorRGB(r,g,b)
 				c.setStrokeColorRGB(r,g,b)
 				c.circle(px, page_height-py, dot_size*size/2.0, stroke=options.wireframe, fill=(not options.wireframe))

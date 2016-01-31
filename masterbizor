@@ -27,7 +27,7 @@ from random import random
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from optparse import Option, OptionValueError, OptionParser
-import Image
+from PIL import Image
 import sys
 import reportlab.lib.pagesizes
 import reportlab.lib.units
@@ -82,11 +82,11 @@ class RastOption(Option):
 	#TYPES += tuple([ 'list_' + t for t in TYPES ])
 
 def error(message, errno=1):
-	print "\n".join(textwrap.wrap("ERROR: " + message))
+	print("\n".join(textwrap.wrap("ERROR: " + message)))
 	sys.exit(errno)
 
 def warning(message):
-	print "\n".join(textwrap.wrap("WARNING: " + message))
+	print("\n".join(textwrap.wrap("WARNING: " + message)))
 
 def handle_args():
 	# add options for:
@@ -157,7 +157,7 @@ def handle_args():
 	parser.add_option('--screen', dest='screen', default='triv',
 			type='choice', choices=('triv', 'trih', 'square'),
 			help='Which screen style to use (default triv)', metavar='STYLE')
-	
+
 	# color options # {{{
 	parser.add_option('--shade', dest='shade',
 			default=True, action='store_true',
@@ -199,7 +199,7 @@ def handle_args():
 	parser.add_option('--log-scale', dest='log_scale',
 			help='When the log scaling method is selected, (where x is the pixel size and y is the scaling factor) use the scale equation to calculate the new pixel size.  Higher values provide greater enhancement to lighter colors: log(x)/y + 1', metavar='Y')
 	# }}}
-	
+
 	# misc boolean options # {{{
 	parser.add_option('--resample', dest='resample',
 			default=True, action='store_true',
@@ -279,17 +279,17 @@ def handle_args():
 def mapColor(color_name):
 	for [namedcolor, name] in (
 			[colors.black,  "black"],
-			[colors.white,  "white"], 
-			[colors.red,    "red"], 
-			[colors.orange, "orange"], 
-			[colors.yellow, "yellow"], 
-			[colors.green,  "green"], 
-			[colors.blue,   "blue"], 
-			[colors.indigo, "indigo"], 
-			[colors.violet, "violet"]): 
+			[colors.white,  "white"],
+			[colors.red,    "red"],
+			[colors.orange, "orange"],
+			[colors.yellow, "yellow"],
+			[colors.green,  "green"],
+			[colors.blue,   "blue"],
+			[colors.indigo, "indigo"],
+			[colors.violet, "violet"]):
 		if name == color_name:
 				return namedcolor
-	
+
 	return colors.black
 
 def basescreen(image, dot_size, dot_spacing, dot_spacing_approx,
@@ -407,10 +407,10 @@ def makepages(page_width, page_height, poster_width, poster_height,
 	global default_units
 	pw = poster_width/reportlab.lib.units.toLength('1' + default_units)
 	ph = poster_height/reportlab.lib.units.toLength('1' + default_units)
-	print "Generating %d pages (%dx%d pages, %dx%d%s)" % \
-			(pages_wide * pages_high, pages_wide, pages_high, pw, ph, default_units)
-	for y in xrange(pages_high):
-		for x in xrange(pages_wide):
+	print("Generating %d pages (%dx%d pages, %dx%d%s)" % \
+			(pages_wide * pages_high, pages_wide, pages_high, pw, ph, default_units))
+	for y in range(pages_high):
+		for x in range(pages_wide):
 			yield makepage(page_width, page_height, poster_width, poster_height,
 				dot_size, dot_spacing, overlap, x, y)
 
@@ -436,15 +436,15 @@ def scaleRGB(r,g,b):
 def sizefunc(image, x, y):
 	x = max(0.0, min(1.0, x))
 	y = max(0.0, min(1.0, y))
-	
+
 	r,g,b = image.getpixel((round((imw-1)*x), round((imh-1)*y)))
 	r,g,b = scaleRGB(r,g,b)
-	
+
 	#s = 0.3*r + 0.59*g + 0.11*b     # more natural color, unless ImageLab already performs this transform...
 	s = r/3.0 + g/3.0 + b/3.0       # closer to rasterbator
-	
+
 	s = 1.0-s
-	
+
 	return r,g,b, s
 
 def main(options):
@@ -467,7 +467,7 @@ def main(options):
 	global screen, imw, imh
 	screen = options.screen
 
-	print "Opening image '%s'..." % options.inputfile
+	print("Opening image '%s'..." % options.inputfile)
 	image = Image.open(options.inputfile).convert('RGB')
 	imw, imh = image.size
 
@@ -499,52 +499,52 @@ def main(options):
 			poster_width, poster_height, dot_size, dot_spacing, options.overlap,
 			options.width_pages, options.height_pages):
 		pagenum += 1
-		print "Generating page %d..." % pagenum
-		
+		print("Generating page %d..." % pagenum)
+
 		# color the background
 		if options.background_rgb_color != (1,1,1):
-		    r,g,b = options.background_rgb_color
+			r,g,b = options.background_rgb_color
 			c.setFillColorRGB(r,g,b)
 			c.rect(0,0, page_width,page_height, fill=1)
-		
+
 		for x, y, px, py in page():
 			r,g,b, size = sizefunc(image, x, y)
-			
+
 			# reset the color
 			if options.color != 'natural':
 				r,g,b = options.rgb_color
-			
+
 			# shade the color
 			if options.shade and options.color != 'natural':
 				r,g,b = shadeRGB(r,g,b, size)
-			
+
 			# invert the size of dots
 			if options.invert_dot_size:
 				size = 1.0-size
-			
+
 			# scale the pixel
 			if options.scale == 'e':
 				size = exp(size)/exp(1)
 			elif options.scale == 'log':
 				if size != 0.0:
 					size = log(size)/options.log_scale + 1
-			
+
 			size = min(size,1.0)
 			dots += 1
 			if size > 1.0/255:
-				
+
 				# invert dot colors
 				if options.invert:
 					r,g,b = 1.0-r,1.0-g,1.0-b
-				
+
 				c.setFillColorRGB(r,g,b)
 				c.setStrokeColorRGB(r,g,b)
 				c.circle(px, page_height-py, dot_size*size/2.0, stroke=options.wireframe, fill=(not options.wireframe))
 		if options.marks:
 			drawregisters(c, regright, regbottom, page_width, page_height)
 		c.showPage()
-	print "%d dots." % dots
-	print "Saving '%s'..." % options.outputfile
+	print("%d dots." % dots)
+	print("Saving '%s'..." % options.outputfile)
 	c.save()
 
 if __name__ == '__main__':

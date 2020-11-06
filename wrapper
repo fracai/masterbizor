@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ "${@-}" = "self-update" ]; then
+    docker pull constructionsincongrues/masterbizor:latest
+else
+    docker run --rm -u $(id -u):$(id -g) -v $(pwd):/app constructionsincongrues/masterbizor:latest "$@"
+fi

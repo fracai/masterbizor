@@ -1,3 +1,8 @@
+2020-11-06: masterbizor-dev
+    masterbizor can be run inside a container
+    created Docker image repository https://hub.docker.com/repository/docker/constructionsincongrues/masterbizor
+    added wrapper script for easy installation
+
 2010-04-08: masterbizor-0.4.0
     imported the following changes to revision control
     added support for several color output modes (image based, solid, shaded, inverted)

@@ -1,2 +1,2 @@
-pillow==3.1.0
-reportlab==3.2.0
+pillow    >=9.0.1
+reportlab >=3.6.8,<4
